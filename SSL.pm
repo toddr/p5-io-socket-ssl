@@ -14,22 +14,22 @@
 
 package IO::Socket::SSL;
 
-use IO::Socket;
-use Net::SSLeay 1.21;
+use IO::Socket ();
+use Socket qw(AF_UNSPEC SOCK_STREAM);
+use Net::SSLeay ();
 use Exporter ();
 use Errno qw( EAGAIN ETIMEDOUT );
-use Carp;
+use Carp ();
 use strict;
 
-use constant {
-	SSL_VERIFY_NONE => Net::SSLeay::VERIFY_NONE(),
-	SSL_VERIFY_PEER => Net::SSLeay::VERIFY_PEER(),
-	SSL_VERIFY_FAIL_IF_NO_PEER_CERT => Net::SSLeay::VERIFY_FAIL_IF_NO_PEER_CERT(),
-	SSL_VERIFY_CLIENT_ONCE => Net::SSLeay::VERIFY_CLIENT_ONCE(),
-	# from openssl/ssl.h, should be better in Net::SSLeay
-	SSL_SENT_SHUTDOWN => 1,
-	SSL_RECEIVED_SHUTDOWN => 2,
-};
+
+use constant SSL_VERIFY_NONE => Net::SSLeay::VERIFY_NONE();
+use constant SSL_VERIFY_PEER => Net::SSLeay::VERIFY_PEER();
+use constant SSL_VERIFY_FAIL_IF_NO_PEER_CERT => Net::SSLeay::VERIFY_FAIL_IF_NO_PEER_CERT();
+use constant SSL_VERIFY_CLIENT_ONCE => Net::SSLeay::VERIFY_CLIENT_ONCE();
+# from openssl/ssl.h, should be better in Net::SSLeay
+use constant SSL_SENT_SHUTDOWN => 1;
+use constant SSL_RECEIVED_SHUTDOWN => 2;
 
 
 
@@ -124,11 +124,11 @@ BEGIN {
 	} elsif ( eval { require URI; URI->VERSION(1.50) }) {
 	        *{idn_to_ascii} = sub { URI->new("http://" . shift)->host }
 	} else {
-		# default: croak if we really got an unencoded international domain
+		# default: Carp::croak if we really got an unencoded international domain
 		*{idn_to_ascii} = sub {
 			my $domain = shift;
 			return $domain if $domain =~m{^[a-zA-Z0-9-_\.]+$};
-			croak "cannot handle international domains, please install Net::LibIDN, Net::IDN::Encode or URI"
+			Carp::croak "cannot handle international domains, please install Net::LibIDN, Net::IDN::Encode or URI"
 		}
 	}
 }
@@ -980,7 +980,7 @@ sub dump_peer_certificate {
 		}
 	} else {
 		$dispatcher{commonName} = sub {
-			croak "you need at least Net::SSLeay version 1.30 for getting commonName"
+			Carp::croak "you need at least Net::SSLeay version 1.30 for getting commonName"
 		}
 	}
 
@@ -989,7 +989,7 @@ sub dump_peer_certificate {
 		$dispatcher{subjectAltNames} = sub { Net::SSLeay::X509_get_subjectAltNames( shift ) };
 	} else {
 		$dispatcher{subjectAltNames} = sub {
-			croak "you need at least Net::SSLeay version 1.33 for getting subjectAltNames"
+			Carp::croak "you need at least Net::SSLeay version 1.33 for getting subjectAltNames"
 		};
 	}
 
@@ -1007,7 +1007,7 @@ sub dump_peer_certificate {
 			or return $self->error("Could not retrieve peer certificate");
 
 		if ($field) {
-			my $sub = $dispatcher{$field} or croak
+			my $sub = $dispatcher{$field} or Carp::croak
 				"invalid argument for peer_certificate, valid are: ".join( " ",keys %dispatcher ).
 				"\nMaybe you need to upgrade your Net::SSLeay";
 			return $sub->($cert);
@@ -1070,7 +1070,7 @@ sub dump_peer_certificate {
 		my $scheme = shift || 'none';
 		if ( ! ref($scheme) ) {
 			DEBUG(3, "scheme=$scheme cert=$cert" );
-			$scheme = $scheme{$scheme} or croak "scheme $scheme not defined";
+			$scheme = $scheme{$scheme} or Carp::croak "scheme $scheme not defined";
 		}
 
 		# get data from certificate
@@ -1089,18 +1089,18 @@ sub dump_peer_certificate {
 		if ( $identity =~m{:} ) {
 			# no IPv4 or hostname have ':'	in it, try IPv6.
 			#  make sure that Socket6 was loaded properly
-			UNIVERSAL::can( __PACKAGE__, 'inet_pton' ) or croak
+			UNIVERSAL::can( __PACKAGE__, 'inet_pton' ) or Carp::croak
 				q[Looks like IPv6 address, make sure that Socket6 is loaded or make "use IO::Socket::SSL 'inet6'];
-			$ipn = inet_pton( $identity ) or croak "'$identity' is not IPv6, but neither IPv4 nor hostname";
+			$ipn = inet_pton( $identity ) or Carp::croak "'$identity' is not IPv6, but neither IPv4 nor hostname";
 		} elsif ( $identity =~m{^\d+\.\d+\.\d+\.\d+$} ) {
 			 # definitly no hostname, try IPv4
-			$ipn = inet_aton( $identity ) or croak "'$identity' is not IPv4, but neither IPv6 nor hostname";
+			$ipn = inet_aton( $identity ) or Carp::croak "'$identity' is not IPv4, but neither IPv6 nor hostname";
 		} else {
 			# assume hostname, check for umlauts etc
 			if ( $identity =~m{[^a-zA-Z0-9_.\-]} ) {
-				$identity =~m{\0} and croak("name '$identity' has \\0 byte");
+				$identity =~m{\0} and Carp::croak("name '$identity' has \\0 byte");
 				$identity = idn_to_ascii($identity) or
-					croak "Warning: Given name '$identity' could not be converted to IDNA!";
+					Carp::croak "Warning: Given name '$identity' could not be converted to IDNA!";
 			}
 		}
 
@@ -1259,20 +1259,20 @@ sub want_write { shift->errstr == SSL_WANT_WRITE }
 sub getline { return(scalar shift->readline()) }
 sub getlines {
 	return(shift->readline()) if wantarray();
-	croak("Use of getlines() not allowed in scalar context");
+	Carp::croak("Use of getlines() not allowed in scalar context");
 }
 
 #Useless IO::Handle functionality
-sub truncate { croak("Use of truncate() not allowed with SSL") }
-sub stat     { croak("Use of stat() not allowed with SSL" ) }
-sub setbuf   { croak("Use of setbuf() not allowed with SSL" ) }
-sub setvbuf  { croak("Use of setvbuf() not allowed with SSL" ) }
-sub fdopen   { croak("Use of fdopen() not allowed with SSL" ) }
+sub truncate { Carp::croak("Use of truncate() not allowed with SSL") }
+sub stat     { Carp::croak("Use of stat() not allowed with SSL" ) }
+sub setbuf   { Carp::croak("Use of setbuf() not allowed with SSL" ) }
+sub setvbuf  { Carp::croak("Use of setvbuf() not allowed with SSL" ) }
+sub fdopen   { Carp::croak("Use of fdopen() not allowed with SSL" ) }
 
 #Unsupported socket functionality
-sub ungetc { croak("Use of ungetc() not implemented in IO::Socket::SSL") }
-sub send   { croak("Use of send() not implemented in IO::Socket::SSL; use print/printf/syswrite instead") }
-sub recv   { croak("Use of recv() not implemented in IO::Socket::SSL; use read/sysread instead") }
+sub ungetc { Carp::croak("Use of ungetc() not implemented in IO::Socket::SSL") }
+sub send   { Carp::croak("Use of send() not implemented in IO::Socket::SSL; use print/printf/syswrite instead") }
+sub recv   { Carp::croak("Use of recv() not implemented in IO::Socket::SSL; use read/sysread instead") }
 
 package IO::Socket::SSL::SSL_HANDLE;
 use strict;
@@ -1316,7 +1316,7 @@ sub CLOSE {							 #<---- Do not change this function!
 
 
 package IO::Socket::SSL::SSL_Context;
-use Carp;
+use Carp ();
 use strict;
 
 my %CTX_CREATED_IN_THIS_THREAD;
